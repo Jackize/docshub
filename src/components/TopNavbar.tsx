@@ -7,12 +7,16 @@ import { DocFile } from "@/lib/types";
 import { mockFiles } from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils";
 import UploadModal from "./UploadModal";
+import { signOut } from "next-auth/react";
+import Image from "next/image";
+import type { Session } from "next-auth";
 
 interface TopNavbarProps {
+  user: Session["user"];
   onFileSelect: (file: DocFile) => void;
 }
 
-export default function TopNavbar({ onFileSelect }: TopNavbarProps) {
+export default function TopNavbar({ user, onFileSelect }: TopNavbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -104,12 +108,24 @@ export default function TopNavbar({ onFileSelect }: TopNavbarProps) {
           <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
             <Settings className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={() => signOut({ callbackUrl: "/login" })}>
             <LogOut className="w-4 h-4" />
           </Button>
-          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold ml-1">
-            TH
-          </div>
+          {user?.image ? (
+            <Image
+              src={user.image}
+              alt={user.name ?? "User avatar"}
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-full ml-1 object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold ml-1">
+              {user?.name
+                ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+                : "?"}
+            </div>
+          )}
         </div>
       </header>
 
