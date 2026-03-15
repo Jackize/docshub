@@ -4,7 +4,6 @@ import { useState } from "react";
 import { FileText, Upload, Github, Settings, LogOut, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocFile } from "@/lib/types";
-import { mockFiles } from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils";
 import UploadModal from "./UploadModal";
 import { signOut } from "next-auth/react";
@@ -13,16 +12,18 @@ import type { Session } from "next-auth";
 
 interface TopNavbarProps {
   user: Session["user"];
+  files: DocFile[];
   onFileSelect: (file: DocFile) => void;
+  onUploadComplete: () => void;
 }
 
-export default function TopNavbar({ user, onFileSelect }: TopNavbarProps) {
+export default function TopNavbar({ user, files, onFileSelect, onUploadComplete }: TopNavbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const results = query.trim()
-    ? mockFiles.filter(
+    ? files.filter(
         (f) =>
           f.name.toLowerCase().includes(query.toLowerCase()) ||
           f.content.toLowerCase().includes(query.toLowerCase())
@@ -129,7 +130,11 @@ export default function TopNavbar({ user, onFileSelect }: TopNavbarProps) {
         </div>
       </header>
 
-      <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <UploadModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onUploadComplete={onUploadComplete}
+      />
 
       {/* Backdrop for search */}
       {searchOpen && (

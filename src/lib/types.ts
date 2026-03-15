@@ -21,6 +21,27 @@ export interface VersionEntry {
   content: string;
 }
 
+export interface StoredVersionEntry {
+  version: number;
+  date: string;
+  author: string;
+  summary: string;
+  chunkPath: string;
+}
+
+export interface StoredDocFile {
+  id: string;
+  name: string;
+  type: FileType;
+  version: number;
+  updatedAt: string;
+  author: string;
+  folderId: string | null;
+  history: StoredVersionEntry[];
+  breadcrumb?: string[];
+  chunkPath: string;
+}
+
 export interface Folder {
   id: string;
   name: string;

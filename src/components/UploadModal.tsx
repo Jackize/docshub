@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 interface UploadModalProps {
   open: boolean;
   onClose: () => void;
+  onUploadComplete: () => void;
 }
 
-export default function UploadModal({ open, onClose }: UploadModalProps) {
+export default function UploadModal({ open, onClose, onUploadComplete }: UploadModalProps) {
   const [uploaded, setUploaded] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setUploaded((prev) => [...prev, ...acceptedFiles]);
@@ -29,6 +31,24 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
   const handleClose = () => {
     setUploaded([]);
     onClose();
+  };
+
+  const handleUpload = async () => {
+    if (uploaded.length === 0) return;
+    setUploading(true);
+    try {
+      await Promise.all(
+        uploaded.map((file) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          return fetch("/api/files", { method: "POST", body: formData });
+        })
+      );
+      onUploadComplete();
+      handleClose();
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -63,7 +83,7 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
 
         {uploaded.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-500">Uploaded files</p>
+            <p className="text-xs font-medium text-gray-500">Files to upload</p>
             {uploaded.map((file, i) => (
               <div key={i} className="flex items-center gap-2 p-2 border border-gray-100 rounded-lg bg-gray-50">
                 <div className="w-7 h-7 rounded bg-indigo-100 flex items-center justify-center shrink-0">
@@ -80,14 +100,14 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
         )}
 
         <div className="flex gap-2 justify-end pt-1">
-          <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
+          <Button variant="outline" size="sm" onClick={handleClose} disabled={uploading}>Cancel</Button>
           <Button
             size="sm"
             className="bg-indigo-600 hover:bg-indigo-700"
-            disabled={uploaded.length === 0}
-            onClick={handleClose}
+            disabled={uploaded.length === 0 || uploading}
+            onClick={handleUpload}
           >
-            Upload {uploaded.length > 0 ? `(${uploaded.length})` : ""}
+            {uploading ? "Uploading..." : `Upload${uploaded.length > 0 ? ` (${uploaded.length})` : ""}`}
           </Button>
         </div>
       </DialogContent>

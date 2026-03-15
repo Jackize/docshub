@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { Plus, ChevronRight, ChevronDown, FileText, Code2 } from "lucide-react";
 import { DocFile, Folder } from "@/lib/types";
-import { mockFiles, mockFolders } from "@/lib/mock-data";
 
 interface SidebarProps {
+  files: DocFile[];
+  folders: Folder[];
   selectedFileId: string | null;
   onFileSelect: (file: DocFile) => void;
 }
@@ -118,9 +119,9 @@ function FileRow({
   );
 }
 
-export default function Sidebar({ selectedFileId, onFileSelect }: SidebarProps) {
-  const rootFiles = mockFiles.filter((f) => f.folderId === null);
-  const rootFolders = mockFolders.filter((f) => f.parentId === null);
+export default function Sidebar({ files, folders, selectedFileId, onFileSelect }: SidebarProps) {
+  const rootFiles = files.filter((f) => f.folderId === null);
+  const rootFolders = folders.filter((f) => f.parentId === null);
 
   return (
     <aside className="w-[260px] shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
@@ -154,8 +155,8 @@ export default function Sidebar({ selectedFileId, onFileSelect }: SidebarProps) 
               <FolderNode
                 key={folder.id}
                 folder={folder}
-                allFolders={mockFolders}
-                allFiles={mockFiles}
+                allFolders={folders}
+                allFiles={files}
                 selectedFileId={selectedFileId}
                 onFileSelect={onFileSelect}
               />
