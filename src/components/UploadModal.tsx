@@ -1,0 +1,96 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { Upload, X, FileText, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface UploadModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function UploadModal({ open, onClose }: UploadModalProps) {
+  const [uploaded, setUploaded] = useState<File[]>([]);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setUploaded((prev) => [...prev, ...acceptedFiles]);
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "text/markdown": [".md"],
+      "text/html": [".html"],
+    },
+  });
+
+  const handleClose = () => {
+    setUploaded([]);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Upload Documents</DialogTitle>
+        </DialogHeader>
+
+        <div
+          {...getRootProps()}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+            isDragActive
+              ? "border-indigo-400 bg-indigo-50"
+              : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50"
+          }`}
+        >
+          <input {...getInputProps()} />
+          <Upload className={`w-8 h-8 mx-auto mb-3 ${isDragActive ? "text-indigo-500" : "text-gray-400"}`} />
+          {isDragActive ? (
+            <p className="text-sm text-indigo-600 font-medium">Drop files here...</p>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-gray-700">Drag & drop files here</p>
+              <p className="text-xs text-gray-400 mt-1">or click to browse</p>
+              <p className="text-xs text-gray-400 mt-3 bg-gray-100 rounded-md px-3 py-1 inline-block">
+                Supports .md and .html files
+              </p>
+            </>
+          )}
+        </div>
+
+        {uploaded.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-500">Uploaded files</p>
+            {uploaded.map((file, i) => (
+              <div key={i} className="flex items-center gap-2 p-2 border border-gray-100 rounded-lg bg-gray-50">
+                <div className="w-7 h-7 rounded bg-indigo-100 flex items-center justify-center shrink-0">
+                  <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-800 truncate">{file.name}</p>
+                  <p className="text-[10px] text-gray-400">{(file.size / 1024).toFixed(1)} KB</p>
+                </div>
+                <Check className="w-4 h-4 text-green-500 shrink-0" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end pt-1">
+          <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700"
+            disabled={uploaded.length === 0}
+            onClick={handleClose}
+          >
+            Upload {uploaded.length > 0 ? `(${uploaded.length})` : ""}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
