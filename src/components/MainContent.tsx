@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Download,
   History,
@@ -9,6 +9,11 @@ import {
   Home,
   ChevronRight,
   FileText,
+  Share2,
+  Copy,
+  Check,
+  X,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocFile } from "@/lib/types";
@@ -19,14 +24,61 @@ import VersionHistoryPanel from "./VersionHistoryPanel";
 
 interface MainContentProps {
   file: DocFile | null;
+  sharedToken?: string | null;
+  sharedOwner?: string | null;
   onDeleteFile?: (id: string) => void;
   onSaveFile?: (id: string, content: string) => void;
   onRestoreFile?: (id: string, version: number) => void;
+  onShareChange?: () => void;
+  onRemoveShare?: (token: string) => void;
 }
 
-export default function MainContent({ file, onDeleteFile, onSaveFile, onRestoreFile }: MainContentProps) {
+export default function MainContent({ file, sharedToken, sharedOwner, onDeleteFile, onSaveFile, onRestoreFile, onShareChange, onRemoveShare }: MainContentProps) {
   const [editing, setEditing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
+        setShareOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [shareOpen]);
+
+  const shareUrl = file?.shareToken
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/shared/${file.shareToken}`
+    : null;
+
+  async function handleGenerate() {
+    if (!file) return;
+    setShareLoading(true);
+    await fetch(`/api/files/${file.id}/share`, { method: "POST" });
+    setShareLoading(false);
+    onShareChange?.();
+  }
+
+  async function handleRevoke() {
+    if (!file) return;
+    setShareLoading(true);
+    await fetch(`/api/files/${file.id}/share`, { method: "DELETE" });
+    setShareLoading(false);
+    onShareChange?.();
+    setShareOpen(false);
+  }
+
+  function handleCopy() {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   if (!file) {
     return (
@@ -76,15 +128,28 @@ export default function MainContent({ file, onDeleteFile, onSaveFile, onRestoreF
       <div className="flex-1 overflow-y-auto">
         {/* Breadcrumb */}
         <div className="px-8 pt-5 pb-1 flex items-center gap-1.5 text-xs text-gray-400">
-          <Home className="w-3.5 h-3.5" />
-          {(file.breadcrumb ?? []).map((crumb) => (
-            <span key={crumb} className="flex items-center gap-1.5">
+          {sharedToken ? (
+            <>
+              <Link2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-indigo-500 font-medium">Shared with me</span>
               <ChevronRight className="w-3 h-3" />
-              <span>{crumb}</span>
-            </span>
-          ))}
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-gray-700 font-medium">{file.name}</span>
+              <span className="text-gray-500">{sharedOwner}</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-gray-700 font-medium">{file.name}</span>
+            </>
+          ) : (
+            <>
+              <Home className="w-3.5 h-3.5" />
+              {(file.breadcrumb ?? []).map((crumb) => (
+                <span key={crumb} className="flex items-center gap-1.5">
+                  <ChevronRight className="w-3 h-3" />
+                  <span>{crumb}</span>
+                </span>
+              ))}
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-gray-700 font-medium">{file.name}</span>
+            </>
+          )}
         </div>
 
         {/* File header */}
@@ -113,33 +178,98 @@ export default function MainContent({ file, onDeleteFile, onSaveFile, onRestoreF
               <Download className="w-3.5 h-3.5" />
               Download
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History className="w-3.5 h-3.5" />
-              History
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Edit
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5 text-red-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
-              onClick={() => onDeleteFile?.(file.id)}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
-            </Button>
+            {sharedToken ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 text-red-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                onClick={() => onRemoveShare?.(sharedToken)}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                Remove from shared
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  History
+                </Button>
+                {/* Share button + popover */}
+                <div ref={shareRef} className="relative">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-8 text-xs gap-1.5 ${file.shareToken ? "text-indigo-600 border-indigo-200 bg-indigo-50" : ""}`}
+                    onClick={() => setShareOpen((o) => !o)}
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    Share
+                  </Button>
+                  {shareOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-gray-700">Share link</span>
+                        <button onClick={() => setShareOpen(false)} className="text-gray-400 hover:text-gray-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {shareUrl ? (
+                        <>
+                          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 mb-2">
+                            <span className="text-xs text-gray-600 truncate flex-1">{shareUrl}</span>
+                            <button
+                              onClick={handleCopy}
+                              className="shrink-0 text-gray-400 hover:text-indigo-600 transition-colors"
+                              title="Copy"
+                            >
+                              {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                          <button
+                            onClick={handleRevoke}
+                            disabled={shareLoading}
+                            className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {shareLoading ? "Revoking…" : "Revoke link"}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={handleGenerate}
+                          disabled={shareLoading}
+                          className="w-full text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-1.5 disabled:opacity-50 transition-colors"
+                        >
+                          {shareLoading ? "Generating…" : "Generate link"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5 text-red-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+                  onClick={() => onDeleteFile?.(file.id)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

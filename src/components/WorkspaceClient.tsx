@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import TopNavbar from "@/components/TopNavbar";
 import Sidebar from "@/components/Sidebar";
 import MainContent from "@/components/MainContent";
-import { DocFile, Folder } from "@/lib/types";
+import { DocFile, Folder, ReceivedShare } from "@/lib/types";
 import type { Session } from "next-auth";
 
 interface WorkspaceClientProps {
@@ -23,6 +23,8 @@ export default function WorkspaceClient({ user }: WorkspaceClientProps) {
   const [files, setFiles] = useState<DocFile[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
+  const [receivedShares, setReceivedShares] = useState<ReceivedShare[]>([]);
+  const [viewingShare, setViewingShare] = useState<{ token: string; file: DocFile; ownerEmail: string } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const refreshFiles = useCallback(async () => {
@@ -49,10 +51,19 @@ export default function WorkspaceClient({ user }: WorkspaceClientProps) {
     }
   }, []);
 
+  const refreshShares = useCallback(async () => {
+    const res = await fetch("/api/shares");
+    if (res.ok) {
+      const data: ReceivedShare[] = await res.json();
+      setReceivedShares(data);
+    }
+  }, []);
+
   useEffect(() => {
     refreshFiles();
     refreshFolders();
-  }, [refreshFiles, refreshFolders]);
+    refreshShares();
+  }, [refreshFiles, refreshFolders, refreshShares]);
 
   // Cmd+K / Ctrl+K → focus search
   useEffect(() => {
@@ -137,6 +148,22 @@ export default function WorkspaceClient({ user }: WorkspaceClientProps) {
     }
   }, []);
 
+  const handleSelectShare = useCallback(async (token: string) => {
+    const res = await fetch(`/api/shares/${token}`);
+    if (res.ok) {
+      const data = await res.json() as { file: DocFile; ownerEmail: string };
+      const file = parseDates(data.file);
+      setViewingShare({ token, file, ownerEmail: data.ownerEmail });
+      setSelectedFile(null);
+    }
+  }, []);
+
+  const handleRemoveShare = useCallback(async (token: string) => {
+    await fetch(`/api/shares/${token}`, { method: "DELETE" });
+    setViewingShare(null);
+    await refreshShares();
+  }, [refreshShares]);
+
   const handleMoveFile = useCallback(async (id: string, folderId: string | null) => {
     const res = await fetch(`/api/files/${id}`, {
       method: "PATCH",
@@ -165,19 +192,26 @@ export default function WorkspaceClient({ user }: WorkspaceClientProps) {
           files={files}
           folders={folders}
           selectedFileId={selectedFile?.id ?? null}
-          onFileSelect={setSelectedFile}
+          selectedShareToken={viewingShare?.token ?? null}
+          onFileSelect={(f) => { setSelectedFile(f); setViewingShare(null); }}
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
           onRenameFile={handleRenameFile}
           onMoveFile={handleMoveFile}
           onDeleteFile={handleDeleteFile}
+          receivedShares={receivedShares}
+          onSelectShare={handleSelectShare}
         />
         <MainContent
-          file={selectedFile}
+          file={viewingShare ? viewingShare.file : selectedFile}
+          sharedToken={viewingShare?.token ?? null}
+          sharedOwner={viewingShare?.ownerEmail ?? null}
           onDeleteFile={handleDeleteFile}
           onSaveFile={handleSaveFile}
           onRestoreFile={handleRestoreFile}
+          onShareChange={refreshFiles}
+          onRemoveShare={handleRemoveShare}
         />
       </div>
     </div>

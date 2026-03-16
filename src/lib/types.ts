@@ -11,6 +11,7 @@ export interface DocFile {
   folderId: string | null;
   history: VersionEntry[];
   breadcrumb?: string[];
+  shareToken?: string | null;
 }
 
 export interface VersionEntry {
@@ -40,6 +41,15 @@ export interface StoredDocFile {
   history: StoredVersionEntry[];
   breadcrumb?: string[];
   chunkPath: string;
+  shareToken?: string | null;
+}
+
+export interface ReceivedShare {
+  token: string;
+  ownerEmail: string;
+  fileId: string;
+  fileName: string;
+  sharedAt: string;
 }
 
 export interface Folder {

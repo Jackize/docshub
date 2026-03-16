@@ -10,13 +10,67 @@ import {
   Pencil,
   Trash2,
   FolderInput,
+  Link2,
+  ExternalLink,
 } from "lucide-react";
-import { DocFile, Folder } from "@/lib/types";
+import { DocFile, Folder, ReceivedShare } from "@/lib/types";
+
+function SharedWithMeSection({
+  shares,
+  selectedShareToken,
+  onSelectShare,
+}: {
+  shares: ReceivedShare[];
+  selectedShareToken: string | null;
+  onSelectShare: (token: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="mt-2">
+      <div className="h-px bg-gray-100 mx-1.5 mb-2" />
+      <button
+        className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-gray-500 hover:text-gray-700 w-full"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        Shared with me
+      </button>
+      {expanded && (
+        <div>
+          {shares.map((share) => (
+            <button
+              key={share.token}
+              onClick={() => onSelectShare(share.token)}
+              className={`group w-full flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded-md text-left transition-colors ${
+                selectedShareToken === share.token
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+              style={{ width: "calc(100% - 12px)" }}
+            >
+              <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 ${
+                selectedShareToken === share.token ? "bg-indigo-100" : "bg-indigo-50"
+              }`}>
+                <Link2 className={`w-3.5 h-3.5 ${selectedShareToken === share.token ? "text-indigo-600" : "text-indigo-400"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs truncate font-medium">{share.fileName}</div>
+                <div className="text-[10px] text-gray-400 truncate">{share.ownerEmail}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface SidebarProps {
   files: DocFile[];
   folders: Folder[];
   selectedFileId: string | null;
+  selectedShareToken?: string | null;
   onFileSelect: (file: DocFile) => void;
   onCreateFolder: (name: string, parentId: string | null) => void;
   onRenameFolder: (id: string, name: string) => void;
@@ -24,6 +78,8 @@ interface SidebarProps {
   onRenameFile: (id: string, name: string) => void;
   onMoveFile: (id: string, folderId: string | null) => void;
   onDeleteFile: (id: string) => void;
+  receivedShares?: ReceivedShare[];
+  onSelectShare?: (token: string) => void;
 }
 
 function FileTypeBadge({ type }: { type: "md" | "html" }) {
@@ -349,6 +405,7 @@ export default function Sidebar({
   files,
   folders,
   selectedFileId,
+  selectedShareToken = null,
   onFileSelect,
   onCreateFolder,
   onRenameFolder,
@@ -356,6 +413,8 @@ export default function Sidebar({
   onRenameFile,
   onMoveFile,
   onDeleteFile,
+  receivedShares = [],
+  onSelectShare,
 }: SidebarProps) {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -438,6 +497,14 @@ export default function Sidebar({
               />
             ))}
           </>
+        )}
+
+        {receivedShares.length > 0 && onSelectShare && (
+          <SharedWithMeSection
+            shares={receivedShares}
+            selectedShareToken={selectedShareToken}
+            onSelectShare={onSelectShare}
+          />
         )}
       </div>
     </aside>

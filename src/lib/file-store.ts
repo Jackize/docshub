@@ -56,6 +56,7 @@ function hydrate(userId: string, s: any): DocFile {
     breadcrumb: s.breadcrumb,
     content: currentContent,
     history,
+    shareToken: s.shareToken ?? null,
   };
 }
 
@@ -142,10 +143,26 @@ export function updateFile(
   return hydrate(userId, updated);
 }
 
+export function setShareToken(userId: string, fileId: string, token: string | null): void {
+  const files = readRaw(userId);
+  const idx = files.findIndex((f) => f.id === fileId);
+  if (idx === -1) return;
+  files[idx] = { ...files[idx], shareToken: token };
+  writeRaw(userId, files);
+}
+
 export function deleteFile(userId: string, id: string): boolean {
   const files = readRaw(userId);
   const target = files.find((f) => f.id === id);
   if (!target) return false;
+
+  // Revoke share if active
+  if (target.shareToken) {
+    // Import lazily to avoid circular deps
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { revokeShare } = require("@/lib/share-store") as typeof import("@/lib/share-store");
+    revokeShare(userId, id);
+  }
 
   // Derive folder from chunkPath (e.g. "CLAUDE/v1.md" → "CLAUDE")
   if (target.chunkPath) {
