@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import TopNavbar from "@/components/TopNavbar";
 import Sidebar from "@/components/Sidebar";
 import MainContent from "@/components/MainContent";
-import { DocFile } from "@/lib/types";
+import { DocFile, Folder } from "@/lib/types";
 import type { Session } from "next-auth";
 
 interface WorkspaceClientProps {
@@ -21,7 +21,9 @@ function parseDates(file: DocFile): DocFile {
 
 export default function WorkspaceClient({ user }: WorkspaceClientProps) {
   const [files, setFiles] = useState<DocFile[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const refreshFiles = useCallback(async () => {
     const res = await fetch("/api/files");
@@ -39,9 +41,30 @@ export default function WorkspaceClient({ user }: WorkspaceClientProps) {
     }
   }, []);
 
+  const refreshFolders = useCallback(async () => {
+    const res = await fetch("/api/folders");
+    if (res.ok) {
+      const data: Folder[] = await res.json();
+      setFolders(data);
+    }
+  }, []);
+
   useEffect(() => {
     refreshFiles();
-  }, [refreshFiles]);
+    refreshFolders();
+  }, [refreshFiles, refreshFolders]);
+
+  // Cmd+K / Ctrl+K → focus search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const handleDeleteFile = useCallback(async (id: string) => {
     await fetch(`/api/files/${id}`, { method: "DELETE" });
@@ -75,20 +98,80 @@ export default function WorkspaceClient({ user }: WorkspaceClientProps) {
     }
   }, []);
 
+  const handleCreateFolder = useCallback(async (name: string, parentId: string | null) => {
+    const res = await fetch("/api/folders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, parentId }),
+    });
+    if (res.ok) await refreshFolders();
+  }, [refreshFolders]);
+
+  const handleRenameFolder = useCallback(async (id: string, name: string) => {
+    const res = await fetch(`/api/folders/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) await refreshFolders();
+  }, [refreshFolders]);
+
+  const handleDeleteFolder = useCallback(async (id: string) => {
+    const res = await fetch(`/api/folders/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      await refreshFolders();
+      await refreshFiles();
+    }
+  }, [refreshFolders, refreshFiles]);
+
+  const handleRenameFile = useCallback(async (id: string, name: string) => {
+    const res = await fetch(`/api/files/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) {
+      const updated = parseDates(await res.json() as DocFile);
+      setFiles((prev) => prev.map((f) => (f.id === id ? updated : f)));
+      setSelectedFile((prev) => (prev?.id === id ? updated : prev));
+    }
+  }, []);
+
+  const handleMoveFile = useCallback(async (id: string, folderId: string | null) => {
+    const res = await fetch(`/api/files/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderId }),
+    });
+    if (res.ok) {
+      const updated = parseDates(await res.json() as DocFile);
+      setFiles((prev) => prev.map((f) => (f.id === id ? updated : f)));
+      setSelectedFile((prev) => (prev?.id === id ? updated : prev));
+    }
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden">
       <TopNavbar
         user={user}
         files={files}
+        folders={folders}
         onFileSelect={setSelectedFile}
         onUploadComplete={refreshFiles}
+        searchInputRef={searchInputRef}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           files={files}
-          folders={[]}
+          folders={folders}
           selectedFileId={selectedFile?.id ?? null}
           onFileSelect={setSelectedFile}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onRenameFile={handleRenameFile}
+          onMoveFile={handleMoveFile}
+          onDeleteFile={handleDeleteFile}
         />
         <MainContent
           file={selectedFile}

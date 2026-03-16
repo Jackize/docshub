@@ -34,6 +34,8 @@ export async function POST(request: Request) {
   const name = file.name.replace(/\.(md|html)$/, "");
   const type = ext as "md" | "html";
 
+  const folderId = (formData.get("folderId") as string | null) || null;
+
   const newFile: Omit<DocFile, "id"> = {
     name,
     type,
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
     version: 1,
     updatedAt: new Date(),
     author: session.user.name ?? "Unknown",
-    folderId: null,
+    folderId,
     history: [],
     breadcrumb: [],
   };

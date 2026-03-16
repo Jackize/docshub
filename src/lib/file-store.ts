@@ -157,6 +157,71 @@ export function deleteFile(userId: string, id: string): boolean {
   return true;
 }
 
+export function renameFile(userId: string, id: string, newName: string): DocFile | null {
+  const files = readRaw(userId);
+  const idx = files.findIndex((f) => f.id === id);
+  if (idx === -1) return null;
+
+  const existing = files[idx];
+  const newSanitized = sanitizeName(newName);
+
+  // Collision check
+  if (files.some((f) => f.id !== id && sanitizeName(f.name) === newSanitized)) {
+    return null;
+  }
+
+  const oldSanitized = sanitizeName(existing.name);
+  const oldDir = path.join(userDir(userId), oldSanitized);
+  const newDir = path.join(userDir(userId), newSanitized);
+
+  if (fs.existsSync(oldDir)) {
+    fs.renameSync(oldDir, newDir);
+  }
+
+  // Determine new type from extension if provided, else keep old
+  const ext = newName.split(".").pop()?.toLowerCase();
+  const newType = ext === "html" ? "html" : existing.type;
+
+  // Rewrite chunkPaths
+  const rewrite = (p: string) => {
+    if (p.startsWith(oldSanitized + "/") || p.startsWith(oldSanitized + "\\")) {
+      return newSanitized + p.slice(oldSanitized.length);
+    }
+    return p;
+  };
+
+  const updated: StoredDocFile = {
+    ...existing,
+    name: newName,
+    type: newType,
+    chunkPath: rewrite(existing.chunkPath),
+    history: existing.history.map((h) => ({ ...h, chunkPath: rewrite(h.chunkPath) })),
+  };
+
+  files[idx] = updated;
+  writeRaw(userId, files);
+  return hydrate(userId, updated);
+}
+
+export function patchFileMeta(
+  userId: string,
+  id: string,
+  patch: { name?: string; folderId?: string | null }
+): DocFile | null {
+  if (patch.name !== undefined) {
+    return renameFile(userId, id, patch.name);
+  }
+
+  const files = readRaw(userId);
+  const idx = files.findIndex((f) => f.id === id);
+  if (idx === -1) return null;
+
+  const updated: StoredDocFile = { ...files[idx], folderId: patch.folderId ?? null };
+  files[idx] = updated;
+  writeRaw(userId, files);
+  return hydrate(userId, updated);
+}
+
 export function rollbackFile(
   userId: string,
   fileId: string,

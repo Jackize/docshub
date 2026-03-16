@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, RefObject } from "react";
 import { FileText, Upload, Github, Settings, LogOut, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DocFile } from "@/lib/types";
+import { DocFile, Folder } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import UploadModal from "./UploadModal";
 import { signOut } from "next-auth/react";
@@ -13,11 +13,13 @@ import type { Session } from "next-auth";
 interface TopNavbarProps {
   user: Session["user"];
   files: DocFile[];
+  folders?: Folder[];
   onFileSelect: (file: DocFile) => void;
   onUploadComplete: () => void;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
 }
 
-export default function TopNavbar({ user, files, onFileSelect, onUploadComplete }: TopNavbarProps) {
+export default function TopNavbar({ user, files, folders = [], onFileSelect, onUploadComplete, searchInputRef }: TopNavbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -58,11 +60,13 @@ export default function TopNavbar({ user, files, onFileSelect, onUploadComplete 
               <div className="flex items-center gap-2 px-3 h-10 border-b border-gray-100">
                 <Search className="w-4 h-4 text-gray-400 shrink-0" />
                 <input
+                  ref={searchInputRef}
                   autoFocus
                   className="flex-1 text-sm outline-none bg-transparent"
                   placeholder="Search documentation..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setSearchOpen(true)}
                 />
                 <button onClick={() => { setSearchOpen(false); setQuery(""); }}>
                   <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
@@ -134,6 +138,7 @@ export default function TopNavbar({ user, files, onFileSelect, onUploadComplete 
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onUploadComplete={onUploadComplete}
+        folders={folders}
       />
 
       {/* Backdrop for search */}

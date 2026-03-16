@@ -2,19 +2,22 @@
 
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, X, FileText, Check } from "lucide-react";
+import { Upload, FileText, Check, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Folder as FolderType } from "@/lib/types";
 
 interface UploadModalProps {
   open: boolean;
   onClose: () => void;
   onUploadComplete: () => void;
+  folders?: FolderType[];
 }
 
-export default function UploadModal({ open, onClose, onUploadComplete }: UploadModalProps) {
+export default function UploadModal({ open, onClose, onUploadComplete, folders = [] }: UploadModalProps) {
   const [uploaded, setUploaded] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [folderId, setFolderId] = useState<string>("");
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setUploaded((prev) => [...prev, ...acceptedFiles]);
@@ -30,6 +33,7 @@ export default function UploadModal({ open, onClose, onUploadComplete }: UploadM
 
   const handleClose = () => {
     setUploaded([]);
+    setFolderId("");
     onClose();
   };
 
@@ -41,6 +45,7 @@ export default function UploadModal({ open, onClose, onUploadComplete }: UploadM
         uploaded.map((file) => {
           const formData = new FormData();
           formData.append("file", file);
+          if (folderId) formData.append("folderId", folderId);
           return fetch("/api/files", { method: "POST", body: formData });
         })
       );
@@ -80,6 +85,24 @@ export default function UploadModal({ open, onClose, onUploadComplete }: UploadM
             </>
           )}
         </div>
+
+        {folders.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
+              <Folder className="w-3.5 h-3.5" /> Upload to folder
+            </p>
+            <select
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 h-9 bg-white text-gray-700 outline-none focus:border-indigo-400 cursor-pointer"
+              value={folderId}
+              onChange={(e) => setFolderId(e.target.value)}
+            >
+              <option value="">Root (no folder)</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {uploaded.length > 0 && (
           <div className="space-y-2">
